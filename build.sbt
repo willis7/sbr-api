@@ -15,7 +15,7 @@ lazy val api = (project in file("."))
     licenses := Seq("MIT-License" -> url("https://github.com/ONSdigital/sbr-control-api/blob/master/LICENSE")),
     startYear := Some(2017),
     homepage := Some(url("https://SBR-UI-HOMEPAGE.gov.uk")),
-    routesGenerator := InjectedRoutesGenerator,
+//    routesGenerator := InjectedRoutesGenerator
     libraryDependencies ++= devDeps
   )
 
@@ -29,13 +29,13 @@ buildInfoPackage := "controllers"
 lazy val devDeps = Seq(
   ws,
   filters,
-  "org.webjars"                  %%    "webjars-play"        %    "2.5.0-3",
-  "com.typesafe.scala-logging"   %%    "scala-logging"       %    "3.5.0",
-  "org.scalatestplus.play"       %%    "scalatestplus-play"  %    "2.0.0"           % Test,
-  "io.swagger"                   %%    "swagger-play2"       %    "1.5.3",
-  "io.lemonlabs"                 %%    "scala-uri"           %    "0.5.0",
-  "org.webjars"                  %     "swagger-ui"          %    "2.2.10-1",
-  "com.typesafe"                 %      "config"             %    "1.3.1"
+  //"org.webjars"                  %%    "webjars-play"        %    "2.5.0-3",
+  //"com.typesafe.scala-logging"   %%    "scala-logging"       %    "3.5.0",
+  //"org.scalatestplus.play"       %%    "scalatestplus-play"  %    "2.0.0"           % Test,
+  //"io.swagger"                   %%    "swagger-play2"       %    "1.5.3",
+  "io.lemonlabs"                 %%    "scala-uri"           %    "0.5.0"
+  //"org.webjars"                  %     "swagger-ui"          %    "2.2.10-1",
+  //"com.typesafe"                 %      "config"             %    "1.3.1"
     excludeAll ExclusionRule("commons-logging", "commons-logging")
 )
 //
