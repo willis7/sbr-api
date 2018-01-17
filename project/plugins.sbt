@@ -1,3 +1,10 @@
+// ONS SBT Plugins
+addSbtPlugin("uk.gov.ons" % "sbt-scala-defaults" % "0.1-SNAPSHOT")
+
+addSbtPlugin("uk.gov.ons" % "sbt-play-defaults" % "0.1-SNAPSHOT")
+
+addSbtPlugin("uk.gov.ons" % "sbt-code-quality" % "0.1-SNAPSHOT")
+
 // Default sbt
 addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.5.14")
 
