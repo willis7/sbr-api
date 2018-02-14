@@ -52,15 +52,15 @@ class RequestGenerator @Inject() (
       .flashing("redirect" -> s"You are being redirected to $route route", "status" -> "ok")
   }
 
-  def singleGETRequest(path: String, headers: Seq[(String, String)] = Seq(), params: Seq[(String, String)] = Seq()): Future[WSResponse] =
-    ws.url(path.toString)
+  def singleGETRequest(path: String, headers: Seq[(String, String)] = Seq.empty, params: Seq[(String, String)] = Seq.empty): Future[WSResponse] =
+    ws.url(path)
       .withQueryString(params: _*)
       .withHeaders(headers: _*)
       .withRequestTimeout(Duration(TIMEOUT_REQUEST, DURATION_METRIC))
       .get
 
   def singleGETRequestWithTimeout(url: String, timeout: Duration = Duration(TIMEOUT_REQUEST, DURATION_METRIC)): WSResponse =
-    Await.result(ws.url(url.toString).get(), timeout)
+    Await.result(ws.url(url).get(), timeout)
 
   @deprecated("Migrate to singlePOSTRequest", "27 Nov 2017 - fix/tidy-up-1")
   def controlReroute(url: String, headers: (String, String), body: JsValue): Future[WSResponse] = {
@@ -70,7 +70,7 @@ class RequestGenerator @Inject() (
 
   def singlePOSTRequest(url: String, headers: (String, String), body: JsValue): Future[WSResponse] = {
     LOGGER.debug(s"Rerouting to route: $url")
-    ws.url(url.toString)
+    ws.url(url)
       .withHeaders(headers)
       .withRequestTimeout(Duration(TIMEOUT_REQUEST, DURATION_METRIC))
       .post(body)
