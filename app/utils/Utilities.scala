@@ -32,16 +32,6 @@ object Utilities {
     )
   }
 
-  def getElement(value: AnyRef) = {
-    val res = value match {
-      case None => ""
-      case Some(i: Int) => i
-      case Some(l: Long) => l
-      case Some(z) => s"""${z.toString}"""
-    }
-    res
-  }
-
   def unquote(s: String) = s.replace("\"", "")
 
   implicit class orElseNull(val j: JsLookupResult) {
