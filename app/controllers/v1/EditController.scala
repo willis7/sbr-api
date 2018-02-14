@@ -67,7 +67,7 @@ class EditController @Inject() (ws: RequestGenerator, val configuration: Configu
 
   def rerouteEditPost(jsonBody: Option[String], url: String): Future[Result] = {
     jsonBody.map { text =>
-      ws.controlReroute(url, "Content-Type" -> "application/json", Json.parse(text.toString)).map {
+      ws.controlReroute(url, "Content-Type" -> "application/json", Json.parse(text)).map {
         response => Status(response.status)(response.body)
       }
     }.getOrElse {
