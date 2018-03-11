@@ -6,8 +6,13 @@ import play.api.test._
 import resources.TestUtils
 
 /**
- * Test application routes operate
- */
+  * RouteSpec
+  * ----------------
+  * Author: haqa
+  * Date: 10 July 2017 - 09:25
+  * Copyright (c) 2017  Office for National Statistics
+  */
+
 class RouteSpec extends TestUtils {
 
   "No Route" should {
@@ -17,14 +22,14 @@ class RouteSpec extends TestUtils {
   }
 
   "HomeController" should {
-    "render default app route" in {
-      val home = fakeRequest("/")
-      // redirect
-      status(home) mustEqual SEE_OTHER
-      val res = getValue(redirectLocation(home))
-      res must include("/health")
-      flash(home).get("status") mustBe Some("ok")
-    }
+//    "render default app route" in {
+//      val home = fakeRequest("/")
+//      // redirect
+//      status(home) mustEqual SEE_OTHER
+//      val res = getValue(redirectLocation(home))
+//      res must include("/health")
+//      flash(home).get("status") mustBe Some("ok")
+//    }
 
     "display swagger documentation" in {
       val docs = fakeRequest("/docs")
@@ -44,7 +49,7 @@ class RouteSpec extends TestUtils {
       contentAsString(search) must include("cannot be empty or too short")
     }
 
-    // @todo - make badrequest route (short key size)
+    // TODO - make badrequest route (short key size)
     "return BadRequest as json error 2with key size too small" ignore {
       val shortId = "123"
       val search = fakeRequest(s"/v1/search?id=$shortId")

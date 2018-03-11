@@ -144,7 +144,8 @@ lazy val devDeps = Seq(
   "io.swagger"                   %%    "swagger-play2"       %    "1.5.3",
   "io.lemonlabs"                 %%    "scala-uri"           %    "0.5.0",
   "org.webjars"                  %     "swagger-ui"          %    "2.2.10-1",
-  "com.typesafe"                 %      "config"             %    "1.3.1"
+  "com.typesafe"                 %      "config"             %    "1.3.1",
+  "com.github.nscala-time"       %%     "nscala-time"        %    "2.18.0"
     excludeAll ExclusionRule("commons-logging", "commons-logging")
 )
 

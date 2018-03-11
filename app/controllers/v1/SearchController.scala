@@ -1,19 +1,21 @@
 package controllers.v1
 
-import javax.inject.{ Inject, Singleton }
+import javax.inject.{Inject, Singleton}
 
+import scala.concurrent.Future
 import scala.util.Try
 
 import play.api.Configuration
-import play.api.i18n.{ I18nSupport, Messages, MessagesApi }
-import play.api.mvc.{ Action, AnyContent }
+import play.api.i18n.{I18nSupport, Messages, MessagesApi}
+import play.api.mvc.{Action, AnyContent, Result}
 import io.swagger.annotations._
-
-import uk.gov.ons.sbr.models._
 
 import utils.FutureResponse.futureSuccess
 import utils.UriBuilder.createUri
+import utils.Utilities.yearMonthFormat
 import services.RequestGenerator
+import swagger.SearchControllerSwagger
+import uk.gov.ons.sbr.models._
 
 /**
  * SearchController
@@ -22,32 +24,17 @@ import services.RequestGenerator
  * Date: 10 July 2017 - 09:25
  * Copyright (c) 2017  Office for National Statistics
  */
+
 @Api("Search")
 @Singleton
 class SearchController @Inject() (implicit ws: RequestGenerator, val configuration: Configuration,
-    val messagesApi: MessagesApi) extends ControllerUtils with I18nSupport {
+    val messagesApi: MessagesApi) extends ControllerHelper with SearchControllerSwagger with I18nSupport {
+
+  private val utilities = new ControllerUtils(messagesApi, configuration)
 
   // TODO - updated ApiResponses annotation
   //public api
-  @ApiOperation(
-    value = "Json id match or a list of unit conflicts",
-    notes = "The matches can occur from any id field and multiple records can be matched",
-    responseContainer = "JSONObject",
-    code = 200,
-    httpMethod = "GET"
-  )
-  @ApiResponses(Array(
-    new ApiResponse(code = 200, responseContainer = "JSONObject", message = "Success -> Record(s) found for id."),
-    new ApiResponse(code = 400, responseContainer = "JSONObject", message = "Client Side Error -> Required " +
-      "parameter was not found."),
-    new ApiResponse(code = 404, responseContainer = "JSONObject", message = "Client Side Error -> Id not found."),
-    new ApiResponse(code = 500, responseContainer = "JSONObject", message = "Server Side Error -> Request " +
-      "could not be completed.")
-  ))
-  def searchById(
-    @ApiParam(value = "An identifier of any type", example = "825039145000", required = true) id: Option[String],
-    @ApiParam(value = "A numerical limit", example = "6", required = false) history: Option[Int]
-  ): Action[AnyContent] = {
+  def searchByIdOLD(id: Option[String], history: Option[Int]): Action[AnyContent] = {
     Action.async { implicit request =>
       val key = id.orElse(request.getQueryString("id")).getOrElse("")
       val limit = history.orElse(Try(Some(request.getQueryString("history").get.toInt)).getOrElse(None))
@@ -56,27 +43,24 @@ class SearchController @Inject() (implicit ws: RequestGenerator, val configurati
     }
   }
 
+  def searchById(id: Option[String], history: Option[Int]): Action[AnyContent] = {
+    Action.async { implicit request =>
+      val key = id.orElse(request.getQueryString("id")).getOrElse("")
+      LOGGER.info(s"Sending request to Control Api to identify $key")
+      utilities.matchByParams(key) match {
+        case (v: IdRequest) =>
+          val limit = history.orElse(Try(Some(request.getQueryString("history").get.toInt)).getOrElse(None))
+          val uri = createUri(SBR_CONTROL_API_URL, key)
+          search[UnitLinksListType](key, uri, history = limit)
+          ???
+        case (i: InvalidKey) => BadRequest(Messages("controller.invalid.id", i, MINIMUM_KEY_LENGTH)).future
+      }
+    }
+  }
+
   // TODO - updated ApiResponses annotation
   //public api
-  @ApiOperation(
-    value = "Json id and period match or a list of unit conflicts",
-    notes = "The matches can occur from any id field and multiple records can be matched",
-    responseContainer = "JSONObject",
-    code = 200,
-    httpMethod = "GET"
-  )
-  @ApiResponses(Array(
-    new ApiResponse(code = 200, responseContainer = "JSONObject", message = "Success -> Record(s) found for id."),
-    new ApiResponse(code = 400, responseContainer = "JSONObject", message = "Client Side Error -> Required " +
-      "parameter was not found."),
-    new ApiResponse(code = 404, responseContainer = "JSONObject", message = "Client Side Error -> Id not found."),
-    new ApiResponse(code = 500, responseContainer = "JSONObject", message = "Server Side Error -> " +
-      "Request could not be completed.")
-  ))
-  def searchByReferencePeriod(
-    @ApiParam(value = "An identifier of any type", example = "825039145000", required = true) id: Option[String],
-    @ApiParam(value = "Identifier creation date", example = "2017/07", required = true) period: String
-  ): Action[AnyContent] = {
+  def searchByReferencePeriodOLD(id: Option[String], period: String): Action[AnyContent] = {
     Action.async { implicit request =>
       val key = id.orElse(request.getQueryString("id")).getOrElse("")
       val res = period match {
@@ -89,106 +73,61 @@ class SearchController @Inject() (implicit ws: RequestGenerator, val configurati
     }
   }
 
-  // TODO - Add swagger to other routes and updated ApiResponses annotation
-  //public api
-  @ApiOperation(
-    value = "Json Object of matching legal unit",
-    notes = "Sends request to Business Index for legal units",
-    responseContainer = "JSONObject",
-    code = 200,
-    httpMethod = "GET"
-  )
-  @ApiResponses(Array(
-    new ApiResponse(code = 200, message = "Success - Displays json list of dates for official development."),
-    new ApiResponse(code = 500, responseContainer = "Json", message = "Internal Server Error - Request timed-out."),
-    new ApiResponse(code = 500, responseContainer = "Json", message = "Internal Server Error - " +
-      "Failed to connection or timeout with endpoint.")
-  ))
-  def searchLeU(
-    @ApiParam(value = "A legal unit identifier", example = "<some example>", required = true) id: String
-  ): Action[AnyContent] = Action.async {
-    LOGGER.info(s"Sending request to Business Index for legal unit: $id")
-    val uri = createUri(SBR_CONTROL_API_URL, id, types = Some(LEU))
-    search[StatisticalUnitLinkType](id, uri, LEU)
-  }
-
-  def searchEnterprise(
-    @ApiParam(value = "An identifier of any type", example = "825039145000", required = true) id: String
-  ): Action[AnyContent] = {
+  def searchByReferencePeriod(id: Option[String], period: String): Action[AnyContent] = {
     Action.async { implicit request =>
-      LOGGER.info(s"Sending request to Control Api to retrieve enterprise with $id")
-      val uri = createUri(SBR_CONTROL_API_URL, id, types = Some(ENT))
-      search[StatisticalUnitLinkType](id, uri, ENT)
+      val key = id.orElse(request.getQueryString("id")).getOrElse("")
+      LOGGER.info(s"Sending request to Control Api to identify $key with $period")
+      searchWithPeriod(key, Some(period))
     }
   }
 
-  def searchVat(
-    @ApiParam(value = "A legal unit identifier", example = "<some example>", required = true) id: String
-  ): Action[AnyContent] = Action.async {
-    LOGGER.info(s"Sending request to Admin Api to retrieve VAT reference with $id")
-    val uri = createUri(SBR_CONTROL_API_URL, id, types = Some(VAT))
-    search[StatisticalUnitLinkType](id, uri, VAT)
+
+  // TODO - Add swagger to other routes and updated ApiResponses annotation
+  def searchLeu(period: String, id: String): Action[AnyContent] = Action.async {
+    LOGGER.info(s"Sending request to Control Api to retrieve legal unit with $id and $period")
+//    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(LEU))
+//    search[StatisticalUnitLinkType](id, uri, LEU, Some(period))
+    searchWithPeriod(id, Some(period), Some(LEU))
   }
 
-  def searchPaye(
-    @ApiParam(value = "A legal unit identifier", example = "<some example>", required = true) id: String
-  ): Action[AnyContent] = Action.async {
-    LOGGER.info(s"Sending request to Admin Api to retrieve PAYE record with $id")
-    val uri = createUri(SBR_CONTROL_API_URL, id, types = Some(PAYE))
-    search[StatisticalUnitLinkType](id, uri, PAYE)
+  def searchEnterprise(period: String, id: String): Action[AnyContent] = Action.async {
+    LOGGER.info(s"Sending request to Control Api to retrieve enterprise with $id and $period")
+//    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(ENT))
+//    search[StatisticalUnitLinkType](id, uri, ENT, Some(period))
+    searchWithPeriod(id, Some(period), Some(ENT))
   }
 
-  def searchCrn(
-    @ApiParam(value = "A legal unit identifier", example = "<some example>", required = true) id: String
-  ): Action[AnyContent] = Action.async {
-    LOGGER.info(s"Sending request to Admin Api to retrieve Companies House Number with $id")
-    val uri = createUri(SBR_CONTROL_API_URL, id, types = Some(CRN))
-    search[StatisticalUnitLinkType](id, uri, CRN)
+  def searchVat(period: String, id: String): Action[AnyContent] = Action.async {
+    LOGGER.info(s"Sending request to Admin Api to retrieve VAT reference with $id and $period")
+//    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(VAT))
+//    search[StatisticalUnitLinkType](id, uri, VAT, Some(period))
+    searchWithPeriod(id, Some(period), Some(VAT))
   }
 
-  // equiv. with period routes
-  def searchLeUWithPeriod(
-    @ApiParam(value = "Identifier creation date", example = "2017/07", required = true) date: String,
-    @ApiParam(value = "A legal unit identifier", example = "<some example>", required = true) id: String
-  ): Action[AnyContent] = Action.async {
-    LOGGER.info(s"Sending request to Control Api to retrieve legal unit with $id and $date")
-    val uri = createUri(SBR_CONTROL_API_URL, id, Some(date), Some(LEU))
-    search[StatisticalUnitLinkType](id, uri, LEU, Some(date))
+  def searchPaye(period: String, id: String): Action[AnyContent] = Action.async {
+    LOGGER.info(s"Sending request to Admin Api to retrieve PAYE record with $id and $period")
+//    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(PAYE))
+//    search[StatisticalUnitLinkType](id, uri, PAYE, Some(period))
+    searchWithPeriod(id, Some(period), Some(PAYE))
   }
 
-  def searchEnterpriseWithPeriod(
-    @ApiParam(value = "Identifier creation date", example = "2017/07", required = true) date: String,
-    @ApiParam(value = "A legal unit identifier", example = "<some example>", required = true) id: String
-  ): Action[AnyContent] = Action.async {
-    LOGGER.info(s"Sending request to Control Api to retrieve enterprise with $id and $date")
-    val uri = createUri(SBR_CONTROL_API_URL, id, Some(date), Some(ENT))
-    search[StatisticalUnitLinkType](id, uri, ENT, Some(date))
+  def searchCrn(period: String, id: String): Action[AnyContent] = Action.async {
+    LOGGER.info(s"Sending request to Admin Api to retrieve Companies House Number with $id and $period")
+//    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(CRN))
+//    search[StatisticalUnitLinkType](id, uri, CRN, Some(period))
+    searchWithPeriod(id, Some(period), Some(CRN))
   }
 
-  def searchVatWithPeriod(
-    @ApiParam(value = "Identifier creation date", example = "2017/07", required = true) date: String,
-    @ApiParam(value = "A legal unit identifier", example = "<some example>", required = true) id: String
-  ): Action[AnyContent] = Action.async {
-    LOGGER.info(s"Sending request to Admin Api to retrieve VAT reference with $id and $date")
-    val uri = createUri(SBR_CONTROL_API_URL, id, Some(date), Some(VAT))
-    search[StatisticalUnitLinkType](id, uri, VAT, Some(date))
-  }
-
-  def searchPayeWithPeriod(
-    @ApiParam(value = "Identifier creation date", example = "2017/07", required = true) date: String,
-    @ApiParam(value = "A legal unit identifier", example = "<some example>", required = true) id: String
-  ): Action[AnyContent] = Action.async {
-    LOGGER.info(s"Sending request to Admin Api to retrieve PAYE record with $id and $date")
-    val uri = createUri(SBR_CONTROL_API_URL, id, Some(date), Some(PAYE))
-    search[StatisticalUnitLinkType](id, uri, PAYE, Some(date))
-  }
-
-  def searchCrnWithPeriod(
-    @ApiParam(value = "Identifier creation date", example = "2017/07", required = true) date: String,
-    @ApiParam(value = "A legal unit identifier", example = "<some example>", required = true) id: String
-  ): Action[AnyContent] = Action.async {
-    LOGGER.info(s"Sending request to Admin Api to retrieve Companies House Number with $id and $date")
-    val uri = createUri(SBR_CONTROL_API_URL, id, Some(date), Some(CRN))
-    search[StatisticalUnitLinkType](id, uri, CRN, Some(date))
+  def searchWithPeriod(key: String, period: Option[String] = None, `type`: Option[DataSourceTypes] = None
+                      ): Future[Result] = {
+    utilities.matchByParams(key, period) match {
+      case (r: ReferencePeriod) =>
+//        val uri = createUri(SBR_CONTROL_API_URL, key, period)
+//        search[UnitLinksListType](key, uri, periodParam = period)
+        ???
+      case (i: InvalidReferencePeriod) =>
+        BadRequest(Messages("controller.datetime.failed.parse", i.exception, yearMonthFormat)).future
+      case (i: InvalidKey) => BadRequest(Messages("controller.invalid.id", i.id, MINIMUM_KEY_LENGTH)).future
+    }
   }
 }

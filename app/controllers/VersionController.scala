@@ -1,26 +1,25 @@
 package controllers
 
 import javax.inject.Singleton
-import io.swagger.annotations.{ Api, ApiOperation, ApiResponse, ApiResponses }
 
-import play.api.mvc.{ Action, Controller }
+import play.api.http.ContentTypes
+import play.api.mvc.{ Action, Results }
+import io.swagger.annotations.Api
+
+import swagger.VersionControllerSwagger
 
 /**
- * version listings is defined using the BuildInfo feature
+ * VersionController
+ * ----------------
+ * Author: haqa
+ * Date: 10 July 2017 - 09:25
+ * Copyright (c) 2017  Office for National Statistics
  */
+
 @Api("Utils")
 @Singleton
-class VersionController extends Controller {
+class VersionController extends Results with ContentTypes with VersionControllerSwagger {
 
-  // public api
-  @ApiOperation(
-    value = "Version List",
-    notes = "Provides a full listing of all versions of software related tools - this can be found in the build file.",
-    httpMethod = "GET"
-  )
-  @ApiResponses(Array(
-    new ApiResponse(code = 200, message = "Success - Displays a version list as json.")
-  ))
   def version = Action {
     Ok(BuildInfo.toJson).as(JSON)
   }
