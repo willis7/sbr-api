@@ -25,6 +25,10 @@ object DataSourceTypesUtil {
     Vector(CRN, VAT, PAYE, LEU, ENT).find(_.toString.equalsIgnoreCase(value))
   }
 
+  def ifExists(value: String): Boolean = {
+    Vector(CRN, VAT, PAYE, LEU, ENT).exists(_.toString.equalsIgnoreCase(value))
+  }
+
   // returns unit reference name for CH
   def converter(unit: String): String = unit match {
     case x if x == CRN.toString => CRN.referenceLabel

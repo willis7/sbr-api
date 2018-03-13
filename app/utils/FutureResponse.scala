@@ -14,15 +14,15 @@ import play.api.mvc.Result
  */
 object FutureResponse {
 
-  implicit class futureSuccess(val res: Result) {
+  implicit class futureSuccess(res: => Result) {
     def future: Future[Result] = Future.successful(res)
   }
 
-  implicit class futureFail(val ex: Exception) {
+  implicit class futureFail(ex: => Exception) {
     protected def futureErr: Future[Exception] = Future.failed(ex)
   }
 
-  implicit class futureFromTry[T](val f: Try[T]) {
+  implicit class futureFromTry[T](f: => Try[T]) {
     def futureTryRes: Future[T] = Future.fromTry(f)
   }
 

@@ -5,13 +5,12 @@ import javax.naming.ServiceUnavailableException
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ Future, TimeoutException }
+import scala.concurrent.{Future, TimeoutException}
 
-import play.api.i18n.{ I18nSupport, Messages }
+import play.api.i18n.{I18nSupport, Messages}
 import play.api.libs.json._
-import play.api.mvc.{ Controller, Result }
-import org.slf4j.{ Logger, LoggerFactory }
-import com.netaporter.uri.Uri
+import play.api.mvc.{Controller, Result}
+import org.slf4j.{Logger, LoggerFactory}
 import com.typesafe.scalalogging.StrictLogging
 
 import uk.gov.ons.sbr.models._
@@ -19,7 +18,7 @@ import uk.gov.ons.sbr.models._
 import config.Properties
 import utils.FutureResponse.futureSuccess
 import utils.UriBuilder.createUri
-import utils.Utilities.{ errAsJson, orElseNull }
+import utils.Utilities.{errAsJson, orElseNull}
 import services.RequestGenerator
 
 /**
@@ -104,18 +103,20 @@ trait ControllerHelper extends Controller with StrictLogging with Properties wit
   }
 
   // @ TODO - CHECK error control
-  protected def search[T](key: String, baseUrl: String, sourceType: DataSourceTypes = ENT,
-    periodParam: Option[String] = None, history: Option[Int] = None)(implicit
+  protected def search[T](key: String, sourceType: Option[DataSourceTypes] = None,
+    periodParam: Option[String] = None, history: Option[Int])(implicit
     fjs: Reads[T],
     ws: RequestGenerator): Future[Result] = {
     key match {
       case k if k.length >= MINIMUM_KEY_LENGTH =>
+        val baseUrl = createUri(SBR_CONTROL_API_URL, key, periodParam, sourceType)
         LOGGER.debug(s"Sending request to ${baseUrl.toString} to retrieve Unit Links")
         ws.singleGETRequest(baseUrl.toString) map {
           case response if response.status == OK => {
             LOGGER.debug(s"Result for unit is: ${response.body}")
             // @ TODO - add to success or failure to JSON ??
             val unitResp = response.json.as[T]
+            // TODO - type classes scala
             unitResp match {
               case u: UnitLinksListType =>
                 // if one UnitLinks found -> get unit
@@ -132,9 +133,9 @@ trait ControllerHelper extends Controller with StrictLogging with Properties wit
                   PartialContent(unitResp.toString).as(JSON)
                 }
               case s: StatisticalUnitLinkType =>
-                val mapOfRecordKeys = Map(sourceType.toString -> (s \ "id").as[String])
+                val mapOfRecordKeys = Map(sourceType.get.toString -> (s \ "id").as[String])
                 val respRecords = parsedRequest(mapOfRecordKeys, periodParam)
-                val json = (Seq(s) zip respRecords).map(x => toJson(x, sourceType.toString)).head
+                val json = (Seq(s) zip respRecords).map(x => toJson(x, sourceType.get.toString)).head
                 Ok(json).as(JSON)
             }
           }

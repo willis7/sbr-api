@@ -1,25 +1,17 @@
 package utils
 
 import java.io.File
-import java.time.YearMonth
-import java.time.format.{ DateTimeFormatter, DateTimeParseException }
 
-import scala.util.{ Failure, Success, Try }
-
-import play.api.libs.json.{ JsLookupResult, JsNull, JsObject, JsValue, Json }
-import org.slf4j.LoggerFactory
+import play.api.libs.json._
 
 /**
  * UriBuilder
  * ----------------
- * Author: haqa & coolit
+ * Author: haqa
  * Date: 16 August 2017 - 09:25
  * Copyright (c) 2017  Office for National Statistics
  */
 object Utilities {
-
-  private[this] val logger = LoggerFactory.getLogger(getClass)
-  val yearMonthFormat = "yyyyMM"
 
   private def currentDirectory = new File(".").getCanonicalPath
 
@@ -55,17 +47,6 @@ object Utilities {
 
   implicit class orElseNull(val j: JsLookupResult) {
     def getOrNull: JsValue = j.getOrElse(JsNull)
-  }
-
-  @throws(classOf[DateTimeParseException])
-  def validateYearMonth(key: String, raw: String) = {
-    val yearAndMonth = Try(YearMonth.parse(raw, DateTimeFormatter.ofPattern(yearAndMonth)))
-    (yearAndMonth: @unchecked) match {
-      case Success(s) => s
-      case Failure(ex: DateTimeParseException) =>
-        logger.error("cannot parse date to YearMonth object", ex)
-        throw ex
-    }
   }
 
 }

@@ -46,25 +46,4 @@ class ControllerUtils @Inject() (val messagesApi: MessagesApi, val configuration
     case ex => InternalServerError(errAsJson(ex.toString, ex.getCause.toString))
   }
 
-  protected def validateYearMonth(key: String, raw: String): RequestEvaluation = {
-    val yearAndMonth = Try(YearMonth.parse(raw, DateTimeFormatter.ofPattern(yearMonthFormat)))
-    yearAndMonth match {
-      case Success(s) =>
-        ReferencePeriod(key, s)
-      case Failure(ex: DateTimeParseException) =>
-        logger.error("cannot parse date to YearMonth object", ex)
-        InvalidReferencePeriod(key, ex)
-    }
-  }
-
-  def matchByParams(key: String, date: Option[String] = None): RequestEvaluation = {
-//    val key = id.orElse(request.getQueryString("id")).getOrElse("")
-    if (key.length >= MINIMUM_KEY_LENGTH) {
-      date match {
-        case None => IdRequest(key)
-        case Some(s) => validateYearMonth(key, s)
-      }
-    } else { InvalidKey(key) }
-  }
-
 }
