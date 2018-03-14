@@ -19,22 +19,23 @@ import swagger.EditControllerSwagger
 
 // TODO - Add proper exception and other RESULT type Handling
 @Api("Edit")
-class EditController @Inject() (ws: RequestGenerator, val configuration: Configuration, val messagesApi: MessagesApi) extends Controller with Properties with EditControllerSwagger {
+class EditController @Inject() (ws: RequestGenerator, val configuration: Configuration, val messagesApi: MessagesApi) extends Controller with EditControllerSwagger {
   // TODO: Fix CORS issue to allow use of Content-Type: application/json
   // There is a CORS issue meaning the UI cannot do a POST request with the headers:
   // Content-Type: application/json
   // There is a temporary fix below, to just parse the POST body as text and do Json.parse(text).
-  private val utils = new ControllerUtils(messagesApi)
+  private val utils = new ControllerUtils(messagesApi, configuration)
+  private val props = new Properties(configuration)
 
   def editEnterprise(id: String): Action[AnyContent] = Action.async { implicit request =>
-    val url = s"$CONTROL_EDIT_ENTERPRISE_URL$id"
+    val url = s"${props.CONTROL_EDIT_ENTERPRISE_URL}$id"
     val jsonBody: Option[String] = request.body.asText
     Logger.info(s"Rerouting edit enterprise by default period request to: $url")
     rerouteEditPost(jsonBody, url)
   }
 
   def editEnterpriseForPeriod(period: String, id: String): Action[AnyContent] = Action.async { implicit request =>
-    val url = s"${CONTROL_EDIT_ENTERPRISE_URL.replace(utils.PLACEHOLDER_PERIOD, period)}$id"
+    val url = s"${props.CONTROL_EDIT_ENTERPRISE_URL.replace(utils.PLACEHOLDER_PERIOD, period)}$id"
     val jsonBody: Option[String] = request.body.asText
     Logger.info(s"Rerouting edit enterprise by specified period request to: $url")
     rerouteEditPost(jsonBody, url)

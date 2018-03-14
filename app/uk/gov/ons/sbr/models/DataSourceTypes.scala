@@ -1,5 +1,7 @@
 package uk.gov.ons.sbr.models
 
+import config.Properties
+
 /**
  * DataSourceTypes
  * ----------------
@@ -34,4 +36,13 @@ object DataSourceTypesUtil {
     case x if x == CRN.toString => CRN.referenceLabel
     case x => x
   }
+
+  private def getUrl(props: Properties)(unitType: DataSourceTypes): String =
+    unitType match {
+      case LEU => props.LEGAL_UNIT_DATA_API_URL
+      case CRN => props.CH_ADMIN_DATA_API_URL
+      case VAT => props.VAT_ADMIN_DATA_API_URL
+      case PAYE => props.PAYE_ADMIN_DATA_API_URL
+      case ENT => props.SBR_CONTROL_API_URL
+    }
 }

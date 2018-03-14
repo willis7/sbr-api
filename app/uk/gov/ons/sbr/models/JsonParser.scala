@@ -1,6 +1,7 @@
 package uk.gov.ons.sbr.models
 
-import play.api.libs.json.{ JsObject, JsValue, Json, JsNull }
+import play.api.libs.json.JsValue
+
 import utils.Utilities.orElseNull
 
 object JsonParser {
@@ -32,12 +33,15 @@ object JsonParser {
         // Only return childrenJson with an Enterprise
         //Json.obj(
         unitType match {
-          //          case "ENT" =>
-          case ENT.toString =>
-            Json.toJson(StatisticalBusinessRegisterRecord(link, unit, unitType, period, vars))
+          case "ENT" =>
+            //          case ENT.toString =>
+            //            Json.toJson(StatisticalBusinessRegisterRecord(link, unit, unitType, period, vars))
+            ???
           case _ =>
-            Json.toJson(StatisticalBusinessRegisterRecord(link, unitType, period, vars))
+            //            Json.toJson(StatisticalBusinessRegisterRecord(link, unitType, period, vars))
+            ???
         } //).fields.filterNot { case (_, v) => v == JsNull }
+
     }
   }
 

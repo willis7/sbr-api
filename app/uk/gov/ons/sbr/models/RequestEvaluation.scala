@@ -1,21 +1,20 @@
 package uk.gov.ons.sbr.models
 
 import java.time.YearMonth
-import java.time.format.{DateTimeFormatter, DateTimeParseException}
+import java.time.format.{ DateTimeFormatter, DateTimeParseException }
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 
-import org.slf4j.{Logger, LoggerFactory}
+import org.slf4j.{ Logger, LoggerFactory }
 import com.google.inject.ImplementedBy
 
-
 /**
-  * RequestEvaluation
-  * ----------------
-  * Author: haqa
-  * Date: 16 August 2017 - 09:25
-  * Copyright (c) 2017  Office for National Statistics
-  */
+ * RequestEvaluation
+ * ----------------
+ * Author: haqa
+ * Date: 16 August 2017 - 09:25
+ * Copyright (c) 2017  Office for National Statistics
+ */
 @ImplementedBy(classOf[ReferencePeriod])
 sealed trait RequestEvaluation {
   def id: String
@@ -25,7 +24,6 @@ case class ReferencePeriod(id: String, period: YearMonth) extends RequestEvaluat
 
 case class InvalidKeyException(id: String, length: Int)
   extends Exception(s"Invalid key length exception $length with key $id")
-
 
 object RequestEvaluationUtils {
 
@@ -53,13 +51,14 @@ object RequestEvaluationUtils {
   def validatePeriod(period: String): Either[Exception, YearMonth] = {
     val yearAndMonth = Try(YearMonth.parse(period, DateTimeFormatter.ofPattern(yearMonthFormat)))
     yearAndMonth match {
-      case Success(s) =>
-        Right(YearMonth)
+      case Success(ym) =>
+        Right(ym)
       case Failure(ex: DateTimeParseException) =>
         logger.error("cannot parse date to YearMonth object", ex)
         Left(ex)
     }
   }
 
+  def yearMonthAsString(ym: YearMonth): String = ym.format(DateTimeFormatter.ofPattern(yearMonthFormat))
 
 }

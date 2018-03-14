@@ -1,6 +1,6 @@
 package config
 
-import javax.inject.{Inject, Singleton}
+import javax.inject.{ Inject, Singleton }
 
 import play.api.Configuration
 import com.typesafe.config.Config
@@ -12,9 +12,10 @@ import com.typesafe.config.Config
  * Date: 10 July 2017 - 09:25
  * Copyright (c) 2017  Office for National Statistics
  */
+
+// TODO - split properties to serach and urlbuilder
 @Singleton
-class Properties @Inject()() {
-  implicit val configuration: Configuration
+class Properties @Inject() (val configuration: Configuration) {
   lazy private val CONFIG: Config = configuration.underlying
 
   // Utils

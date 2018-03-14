@@ -1,6 +1,9 @@
 package utils
 
+import java.time.YearMonth
+
 import uk.gov.ons.sbr.models._
+import RequestEvaluationUtils.yearMonthAsString
 
 /**
  * UriBuilder
@@ -28,18 +31,18 @@ object UriBuilder {
    * @return {String} url
    */
   // @TODO - Remove group parameter
-  def createUri(baseUrl: String, units: String, periods: Option[String] = None, types: Option[DataSourceTypes] = None,
+  def createUri(baseUrl: String, units: String, periods: Option[YearMonth] = None, types: Option[DataSourceTypes] = None,
     group: String = "", history: Option[Int] = None): String = {
     val unitTypePath = DataSourceTypesUtil.fromString(group).getOrElse(None) match {
       case x: DataSourceTypes => x.path
       case _ => UNIT_PATH
     }
     (periods, types, units, history) match {
-      case (Some(p), Some(t), u, None) => s"$baseUrl/$PERIOD_PATH/$p/$TYPE_PATH/${t.toString}/$unitTypePath/$u"
+      case (Some(p), Some(t), u, None) => s"$baseUrl/$PERIOD_PATH/${yearMonthAsString(p)}/$TYPE_PATH/${t.toString}/$unitTypePath/$u"
       case (Some(p), None, u, None) => if (List(VAT.toString, CRN.toString, PAYE.toString, LEU.toString) contains group) {
-        s"$baseUrl/$unitTypePath/$u/$PERIOD_PATH/$p"
+        s"$baseUrl/$unitTypePath/$u/$PERIOD_PATH/${yearMonthAsString(p)}"
       } else {
-        s"$baseUrl/$PERIOD_PATH/$p/$unitTypePath/$u"
+        s"$baseUrl/$PERIOD_PATH/${yearMonthAsString(p)}/$unitTypePath/$u"
       }
       case (None, None, u, Some(h)) => s"$baseUrl/$unitTypePath/$u/$HISTORY_PATH?$HISTORY_MAX_ARG=$h"
       case (None, Some(t), u, None) => s"$baseUrl/$TYPE_PATH/${t.toString}/$unitTypePath/$u"

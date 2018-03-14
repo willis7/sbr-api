@@ -1,27 +1,22 @@
 package controllers.v1
 
-import java.time.YearMonth
-import java.time.format.{DateTimeFormatter, DateTimeParseException}
-import javax.inject.{Inject, Singleton}
+import java.time.format.DateTimeParseException
+import javax.inject.{ Inject, Singleton }
 import javax.naming.ServiceUnavailableException
 
 import scala.concurrent.TimeoutException
-import scala.util.{Failure, Success, Try}
 
 import play.api.Configuration
-import play.api.i18n.{I18nSupport, Messages, MessagesApi}
+import play.api.i18n.{ I18nSupport, Messages, MessagesApi }
 import play.api.libs.json.JsValue
-import play.api.mvc.{AnyContent, Request, Result, Results}
-import org.slf4j.{Logger, LoggerFactory}
+import play.api.mvc.{ Result, Results }
+import org.slf4j.{ Logger, LoggerFactory }
 
-import config.Properties
-import utils.Utilities.yearMonthFormat
 import utils.Utilities.errAsJson
-import uk.gov.ons.sbr.models._
 
 @Singleton
 class ControllerUtils @Inject() (val messagesApi: MessagesApi, val configuration: Configuration)
-  extends Results with I18nSupport with Properties {
+    extends Results with I18nSupport {
 
   val PLACEHOLDER_PERIOD = "*date"
   val PLACEHOLDER_UNIT_TYPE = "*type"
@@ -34,7 +29,7 @@ class ControllerUtils @Inject() (val messagesApi: MessagesApi, val configuration
   protected type UnitLinksListType = Seq[JsValue]
   protected type StatisticalUnitLinkType = JsValue
 
-  private def responseException: PartialFunction[Throwable, Result] = {
+  def responseException: PartialFunction[Throwable, Result] = {
     case ex: DateTimeParseException =>
       BadRequest(Messages("controller.datetime.failed.parse", ex.toString))
     case ex: RuntimeException =>

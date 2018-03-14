@@ -28,7 +28,7 @@ import config.Properties
 class RequestGenerator @Inject() (
     ws: WSClient,
     val configuration: Configuration
-) extends Results with Status with ContentTypes with Properties {
+) extends Results with Status with ContentTypes {
 
   private[this] val LOGGER = LoggerFactory.getLogger(getClass)
 
@@ -39,6 +39,8 @@ class RequestGenerator @Inject() (
 
   private val TIME_UNIT_COLLECTION: List[TimeUnit] =
     List(NANOSECONDS, MICROSECONDS, MILLISECONDS, SECONDS, MINUTES, HOURS, DAYS)
+
+  private val props = new Properties(configuration)
 
   final def timeUnitMapper(s: String): TimeUnit =
     TIME_UNIT_COLLECTION.find(_.toString.equalsIgnoreCase(s))
@@ -63,7 +65,7 @@ class RequestGenerator @Inject() (
   @deprecated("Migrate to singlePOSTRequest", "27 Nov 2017 - fix/tidy-up-1")
   def controlReroute(url: String, headers: (String, String), body: JsValue): Future[WSResponse] = {
     LOGGER.debug(s"Rerouting to route: $url")
-    ws.url(url).withHeaders(headers).withRequestTimeout(API_REQUEST_TIMEOUT.millis).post(body)
+    ws.url(url).withHeaders(headers).withRequestTimeout(props.API_REQUEST_TIMEOUT.millis).post(body)
   }
 
   def singlePOSTRequest(url: String, headers: (String, String), body: JsValue): Future[WSResponse] = {
