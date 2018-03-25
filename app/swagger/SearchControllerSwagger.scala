@@ -50,7 +50,7 @@ trait SearchControllerSwagger {
     new ApiResponse(code = 500, responseContainer = "JSONObject", message = "Server Side Error -> " +
       "Request could not be completed.")
   ))
-  def searchByReferencePeriod(
+  def searchByPeriod(
     @ApiParam(value = "An identifier of any type", example = "825039145000", required = true) id: Option[String],
     @ApiParam(value = "Identifier creation date", example = "2017/07", required = true) period: String
   ): Action[AnyContent]

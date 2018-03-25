@@ -5,7 +5,7 @@
 # Searching Endpoints
 
 GET     /v1/search                        controllers.v1.SearchController.searchById(id: Option[String] ?= None, history: Option[Int] ?= None)
-GET     /v1/periods/:period/search        controllers.v1.SearchController.searchByReferencePeriod(id: Option[String] ?= None, period)
+GET     /v1/periods/:period/search        controllers.v1.SearchController.searchByPeriod(id: Option[String] ?= None, period)
 
 # TODO - check and Add history arg in path routes if needed
 

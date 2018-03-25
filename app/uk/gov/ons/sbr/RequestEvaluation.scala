@@ -1,4 +1,4 @@
-package uk.gov.ons.sbr.models
+package uk.gov.ons.sbr
 
 import java.time.YearMonth
 import java.time.format.{ DateTimeFormatter, DateTimeParseException }
@@ -8,6 +8,8 @@ import scala.util.{ Failure, Success, Try }
 import org.slf4j.{ Logger, LoggerFactory }
 import com.google.inject.ImplementedBy
 
+import uk.gov.ons.sbr.models.DataSourceTypes
+
 /**
  * RequestEvaluation
  * ----------------
@@ -15,12 +17,14 @@ import com.google.inject.ImplementedBy
  * Date: 16 August 2017 - 09:25
  * Copyright (c) 2017  Office for National Statistics
  */
-@ImplementedBy(classOf[ReferencePeriod])
+@ImplementedBy(classOf[PeriodRequest])
 sealed trait RequestEvaluation {
   def id: String
 }
 case class IdRequest(id: String) extends RequestEvaluation
-case class ReferencePeriod(id: String, period: YearMonth) extends RequestEvaluation
+case class PeriodRequest(id: String, period: YearMonth) extends RequestEvaluation
+case class IdHistoryRequest(id: String, history: Int) extends RequestEvaluation
+case class UnitRequest(id: String, period: YearMonth, `type`: DataSourceTypes) extends RequestEvaluation
 
 case class InvalidKeyException(id: String, length: Int)
   extends Exception(s"Invalid key length exception $length with key $id")
@@ -29,16 +33,29 @@ object RequestEvaluationUtils {
 
   protected[this] val logger: Logger = LoggerFactory.getLogger(getClass.getName)
   // TODO - Inject config to get MINIMUM_KEY_LENGTH
-  private val MINIMUM_KEY_LENGTH = 4
+  val MINIMUM_KEY_LENGTH = 4
 
   val yearMonthFormat: String = "yyyyMM"
+
+  // WRAPPER
+  def getUnitMatchRequest(id: String, period: Option[String] = None, `type`: Option[DataSourceTypes] = None): Either[Exception, RequestEvaluation] =
+    //     `type`.fold(matchByParams(id, period))(
+    //       d => matchByParams(id, period).right.map(
+    //         x => UnitRequest(x.id, x.asInstanceOf[PeriodRequest].period, d)
+    //       )
+    //     )
+    `type`.fold(matchByParams(id, period))(
+      d => matchByParams(id, period).right.map {
+        case (x: PeriodRequest) => UnitRequest(x.id, x.period, d)
+      }
+    )
 
   def matchByParams(key: String, period: Option[String] = None): Either[Exception, RequestEvaluation] = {
     val id = validateKey(key).right.map(IdRequest)
     id.right.flatMap(
       i => if (period.isDefined) {
         validatePeriod(period.get).right.map(
-          y => ReferencePeriod(i.id, y)
+          y => PeriodRequest(i.id, y)
         )
       } else id
     )

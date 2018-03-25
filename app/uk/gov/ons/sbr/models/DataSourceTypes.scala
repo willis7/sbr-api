@@ -1,5 +1,7 @@
 package uk.gov.ons.sbr.models
 
+import scala.util.{ Failure, Success, Try }
+
 import config.Properties
 
 /**
@@ -9,6 +11,8 @@ import config.Properties
  * Date: 17 October 2017 - 09:25
  * Copyright (c) 2017  Office for National Statistics
  */
+
+// TODO look for abstract Writer/ format
 sealed trait DataSourceTypes { def path: String }
 
 case object CRN extends DataSourceTypes {
@@ -37,7 +41,7 @@ object DataSourceTypesUtil {
     case x => x
   }
 
-  private def getUrl(props: Properties)(unitType: DataSourceTypes): String =
+  def getUrl(props: Properties)(unitType: DataSourceTypes): String =
     unitType match {
       case LEU => props.LEGAL_UNIT_DATA_API_URL
       case CRN => props.CH_ADMIN_DATA_API_URL
@@ -45,4 +49,11 @@ object DataSourceTypesUtil {
       case PAYE => props.PAYE_ADMIN_DATA_API_URL
       case ENT => props.SBR_CONTROL_API_URL
     }
+
+  def tryFindDataSource(`type`: String): Either[Throwable, DataSourceTypes] = {
+    Try(fromString(`type`)) match {
+      case Success(s) => Right(s.get)
+      case Failure(ex) => Left(ex)
+    }
+  }
 }

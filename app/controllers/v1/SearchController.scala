@@ -4,23 +4,25 @@ import java.time.format.DateTimeParseException
 import javax.inject.{Inject, Singleton}
 import javax.naming.ServiceUnavailableException
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, TimeoutException}
 import scala.util.Try
 
 import play.api.Configuration
 import play.api.i18n.{I18nSupport, Messages, MessagesApi}
-import play.api.mvc.{Action, AnyContent, Controller, Result}
+import play.api.libs.json.{JsResultException, Reads}
+import play.api.libs.ws.WSResponse
+import play.api.mvc._
 import org.slf4j.LoggerFactory
-import io.swagger.annotations._
+import io.swagger.annotations.Api
 
+import uk.gov.ons.sbr._
 import uk.gov.ons.sbr.models._
 
 import utils.FutureResponse.futureSuccess
+import utils.Utilities.errAsJson
 import services.{RequestGenerator, SearchService}
 import swagger.SearchControllerSwagger
-import scala.concurrent.ExecutionContext.Implicits.global
-
-import utils.Utilities.errAsJson
 
 /**
  * SearchController
@@ -40,60 +42,25 @@ class SearchController @Inject() (
 ) extends Controller with SearchControllerSwagger with I18nSupport {
 
   private[this] val logger = LoggerFactory.getLogger(getClass.getName)
+  val searchService = new SearchService
 
-  // TODO - updated ApiResponses annotation
-  //  //public api
-  //  def searchByIdOLD(id: Option[String], history: Option[Int]): Action[AnyContent] = {
-  //    Action.async { implicit request =>
-  //      val key = id.orElse(request.getQueryString("id")).getOrElse("")
-  //      val limit = history.orElse(Try(Some(request.getQueryString("history").get.toInt)).getOrElse(None))
-  //      val uri = createUri(SBR_CONTROL_API_URL, key)
-  //      search[UnitLinksListType](key, uri, history = limit)
-  //    }
-  //  }
-
-  // TODO - updated ApiResponses annotation
-  //public api
-  //  def searchByReferencePeriodOLD(id: Option[String], period: String): Action[AnyContent] = {
-  //    Action.async { implicit request =>
-  //      val key = id.orElse(request.getQueryString("id")).getOrElse("")
-  //      val res = period match {
-  //        case x if x.length == FIXED_YEARMONTH_SIZE =>
-  //          val uri = createUri(SBR_CONTROL_API_URL, key, Some(period))
-  //          search[UnitLinksListType](key, uri, periodParam = Some(period))
-  //        case _ => BadRequest(Messages("controller.invalid.period", period, "yyyyMM")).future
-  //      }
-  //      res
-  //    }
-  //  }
-
-  private val searchService = new SearchService
+  type UnitLinksList = Seq[UnitLinks]
+  type StatisticalUnitLink = UnitLinks
 
   def searchById(id: Option[String], history: Option[Int]): Action[AnyContent] = {
     Action.async { implicit request =>
       val key = id.orElse(request.getQueryString("id")).getOrElse("")
+      val limit = history.orElse(Try(Some(request.getQueryString("history").get.toInt)).getOrElse(None))
       logger.info(s"Sending request to Control Api to identify $key")
-      RequestEvaluationUtils.matchByParams(key) match {
-        case Right(i: IdRequest) =>
-          val limit = history.orElse(Try(Some(request.getQueryString("history").get.toInt)).getOrElse(None))
-          //          val uri = createUri(SBR_CONTROL_API_URL, key)
-          //          search[UnitLinksListType](key, uri, history = limit)
-          //          searchWithPeriod[UnitLinksListType](i.id, history = limit)
-          searchService.searchRequest(i.id, None, None, limit).map {
-            case response if response.status == OK => {
-              Ok(response.json)
-            }
-          }
-        case Left(e: InvalidKeyException) => BadRequest(e.getMessage).future
-      }
+      search(key, limit)
     }
   }
 
-  def searchByReferencePeriod(id: Option[String], period: String): Action[AnyContent] = {
+  def searchByPeriod(id: Option[String], period: String): Action[AnyContent] = {
     Action.async { implicit request =>
       val key = id.orElse(request.getQueryString("id")).getOrElse("")
       logger.info(s"Sending request to Control Api to identify $key with $period")
-      searchWithPeriod[searchService.UnitLinksListType](key, Some(period))
+      searchWithPeriod[UnitLinksList](key, Some(period))
     }
   }
 
@@ -102,62 +69,138 @@ class SearchController @Inject() (
     logger.info(s"Sending request to Control Api to retrieve legal unit with $id and $period")
     //    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(LEU))
     //    search[StatisticalUnitLinkType](id, uri, LEU, Some(period))
-    searchWithPeriod[searchService.StatisticalUnitLinkType](id, Some(period), Some(LEU))
+    searchWithPeriod[StatisticalUnitLink](id, Some(period), Some(LEU))
   }
 
   def searchEnterprise(period: String, id: String): Action[AnyContent] = Action.async {
     logger.info(s"Sending request to Control Api to retrieve enterprise with $id and $period")
     //    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(ENT))
     //    search[StatisticalUnitLinkType](id, uri, ENT, Some(period))
-    searchWithPeriod[searchService.StatisticalUnitLinkType](id, Some(period), Some(ENT))
+    searchWithPeriod[StatisticalUnitLink](id, Some(period), Some(ENT))
   }
 
   def searchVat(period: String, id: String): Action[AnyContent] = Action.async {
     logger.info(s"Sending request to Admin Api to retrieve VAT reference with $id and $period")
     //    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(VAT))
     //    search[StatisticalUnitLinkType](id, uri, VAT, Some(period))
-    searchWithPeriod[searchService.StatisticalUnitLinkType](id, Some(period), Some(VAT))
+    searchWithPeriod[StatisticalUnitLink](id, Some(period), Some(VAT))
   }
 
   def searchPaye(period: String, id: String): Action[AnyContent] = Action.async {
     logger.info(s"Sending request to Admin Api to retrieve PAYE record with $id and $period")
     //    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(PAYE))
     //    search[StatisticalUnitLinkType](id, uri, PAYE, Some(period))
-    searchWithPeriod[searchService.StatisticalUnitLinkType](id, Some(period), Some(PAYE))
+    searchWithPeriod[StatisticalUnitLink](id, Some(period), Some(PAYE))
   }
 
   def searchCrn(period: String, id: String): Action[AnyContent] = Action.async {
     logger.info(s"Sending request to Admin Api to retrieve Companies House Number with $id and $period")
     //    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(CRN))
     //    search[StatisticalUnitLinkType](id, uri, CRN, Some(period))
-    searchWithPeriod[searchService.StatisticalUnitLinkType](id, Some(period), Some(CRN))
+    searchWithPeriod[StatisticalUnitLink](id, Some(period), Some(CRN))
   }
 
-  def searchWithPeriod[T](id: String, period: Option[String] = None, `type`: Option[DataSourceTypes] = None,
-    history: Option[Int] = None): Future[Result] = {
-    RequestEvaluationUtils.matchByParams(id, period) match {
-      case Right(r: ReferencePeriod) =>
-        searchService.searchRequest(id, Some(r.period), `type`, history).map {
-          case response if response.status == OK => {
-            Ok(response.json)
-          } case response if response.status == NOT_FOUND => NotFound(response.body).as(JSON)
-        } recover responseException
-      case Left(ex: DateTimeParseException) =>
-        BadRequest(Messages("controller.datetime.failed.parse", ex.toString, RequestEvaluationUtils.yearMonthFormat)).future
+  def search(key: String, history: Option[Int]): Future[Result] =
+    //  def search(key: String, history: Option[Int])(implicit reads: Reads[UnitLinksList]): Future[Result] =
+    RequestEvaluationUtils.matchByParams(key).fold(
+      e => BadRequest(e.getMessage).future,
+      // TODO investigate why the use of getQueryString
+      i => {
+        history.fold(searchService.generateRequest[UnitLinksList](IdRequest(i.id)))(
+          h =>
+            searchService.generateRequest[UnitLinksList](IdHistoryRequest(i.id, h))
+        ).map {
+            //        val ul = implicitly[UnitLinksType[UnitLinksList]]
+            //        searchService.generateRequest[UnitLinksList](i.id, None, None, history)(reads, ul).map {
+            case Right(response: WSResponse) if response.status == OK => Ok(response.json).as(JSON)
+            case Right(response: WSResponse) if response.status == NOT_FOUND => NotFound(response.json).as(JSON)
+            case Left(ex: Throwable) => responseException(ex)
+          }
+      }
+    )
+
+  @deprecated("Migrated to search", "fix/refactor-code - 25 March 2018")
+  def searchOLD(key: String, history: Option[Int]): Future[Result] = {
+    RequestEvaluationUtils.matchByParams(key) match {
+      case Right(i: IdRequest) =>
+        // TODO investigate why the use of getQueryString
+        searchService.generateRequest[UnitLinksList](i.id, None, None, history).map {
+          //        val ul = implicitly[UnitLinksType[UnitLinksList]]
+          //        searchService.generateRequest[UnitLinksList](i.id, None, None, history)(reads, ul).map {
+          case Right(response: WSResponse) if response.status == OK => Ok(response.json).as(JSON)
+          case Right(response: WSResponse) if response.status == NOT_FOUND => NotFound(response.json).as(JSON)
+          case Left(ex: Throwable) => responseException(ex)
+        } //recover responseException
       case Left(e: InvalidKeyException) => BadRequest(e.getMessage).future
     }
   }
 
-  // TODO - add loggers
-  def responseException: PartialFunction[Throwable, Result] = {
+  def searchWithPeriod[T](id: String, period: Option[String] = None, `type`: Option[DataSourceTypes] = None)(implicit reads: Reads[T]): Future[Result] =
+    RequestEvaluationUtils.matchByParams(id, period) match {
+      case Right(r: RequestEvaluation) =>
+        searchService.generateRequest[T](r)(reads).map {
+          //        val ul = implicitly[UnitLinksType[T]]
+          //        searchService.generateRequest[T](id, Some(r.period), `type`)(reads, ul).map {
+          case Right(response: WSResponse) if response.status == OK => Ok(response.json).as(JSON)
+          case Right(response: WSResponse) if response.status == NOT_FOUND => NotFound(response.json).as(JSON)
+          case Left(ex: Throwable) => responseException(ex)
+        } //recover responseException
+      case Left(ex: DateTimeParseException) =>
+        BadRequest(Messages("controller.datetime.failed.parse", ex.toString,
+          RequestEvaluationUtils.yearMonthFormat)).future
+      case Left(e: InvalidKeyException) => BadRequest(e.getMessage).future
+    }
+
+  @deprecated("Migrated to searchWithPeriod", "fix/refactor-code - 25 March 2018")
+  def searchWithPeriodOLD[T](id: String, period: Option[String] = None, `type`: Option[DataSourceTypes] = None)(implicit reads: Reads[T]): Future[Result] =
+    RequestEvaluationUtils.matchByParams(id, period) match {
+      case Right(r: PeriodRequest) =>
+        searchService.generateRequest[T](id, Some(r.period), `type`)(reads).map {
+          //        val ul = implicitly[UnitLinksType[T]]
+          //        searchService.generateRequest[T](id, Some(r.period), `type`)(reads, ul).map {
+          case Right(response: WSResponse) if response.status == OK => Ok(response.json).as(JSON)
+          case Right(response: WSResponse) if response.status == NOT_FOUND => NotFound(response.json).as(JSON)
+          case Left(ex: Throwable) => responseException(ex)
+        } //recover responseException
+      case Left(ex: DateTimeParseException) =>
+        BadRequest(Messages("controller.datetime.failed.parse", ex.toString,
+          RequestEvaluationUtils.yearMonthFormat)).future
+      case Left(e: InvalidKeyException) => BadRequest(e.getMessage).future
+    }
+
+  @deprecated("Migrated to responseException", "fix/refactor-code - 18 March 2018")
+  def recoverException: PartialFunction[Throwable, Result] = {
     case ex: DateTimeParseException =>
       BadRequest(Messages("controller.datetime.failed.parse", ex.toString))
-    case ex: RuntimeException =>
-      InternalServerError(errAsJson(ex.toString, ex.getCause.toString))
+    case ex: JsResultException => InternalServerError(s"$ex")
+    case ex: RuntimeException => InternalServerError(s"$ex")
+    //      InternalServerError(errAsJson(ex.toString, ex.getCause.toString))
     case ex: ServiceUnavailableException =>
       ServiceUnavailable(errAsJson(ex.toString, ex.getCause.toString))
     case ex: TimeoutException =>
       RequestTimeout(Messages("controller.timeout.request", s"$ex", s"${ex.getCause}"))
     case ex => InternalServerError(errAsJson(ex.toString, ex.getCause.toString))
   }
+
+  def responseException(e: Throwable): Result =
+    e match {
+      case ex: DateTimeParseException =>
+        logger.error("controller.datetime.failed.parse", ex)
+        BadRequest(Messages("controller.datetime.failed.parse", ex.toString))
+      case ex: JsResultException =>
+        logger.error(s"Cannot parse json to object with exception $ex", ex)
+        InternalServerError(s"$ex")
+      case ex: RuntimeException =>
+        logger.error("Error, something went wrong", ex)
+        InternalServerError(s"$ex")
+      case ex: ServiceUnavailableException =>
+        logger.error(s"Exception caught due to an internal service failure or not found - ${ex.getCause}", ex)
+        ServiceUnavailable(errAsJson(ex.toString, ex.getCause.toString))
+      case ex: TimeoutException =>
+        logger.error(s"Failure due to service timeout by ${ex.getCause.toString}", ex)
+        RequestTimeout(Messages("controller.timeout.request", s"$ex", s"${ex.getCause}"))
+      case ex =>
+        logger.error(s"Unexpected error caused by some exception ${ex.getClass.toString}", ex)
+        InternalServerError(errAsJson(ex.toString, ex.getCause.toString))
+    }
 }
