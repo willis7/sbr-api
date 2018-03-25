@@ -42,13 +42,14 @@ class SearchController @Inject() (
 ) extends Controller with SearchControllerSwagger with I18nSupport {
 
   private[this] val logger = LoggerFactory.getLogger(getClass.getName)
-  val searchService = new SearchService
+  private val searchService = new SearchService
 
   type UnitLinksList = Seq[UnitLinks]
-  type StatisticalUnitLink = UnitLinks
+  type StatisticalUnit = UnitLinks
 
   def searchById(id: Option[String], history: Option[Int]): Action[AnyContent] = {
     Action.async { implicit request =>
+      // TODO investigate why the use of getQueryString
       val key = id.orElse(request.getQueryString("id")).getOrElse("")
       val limit = history.orElse(Try(Some(request.getQueryString("history").get.toInt)).getOrElse(None))
       logger.info(s"Sending request to Control Api to identify $key")
@@ -58,6 +59,7 @@ class SearchController @Inject() (
 
   def searchByPeriod(id: Option[String], period: String): Action[AnyContent] = {
     Action.async { implicit request =>
+      // TODO investigate why the use of getQueryString
       val key = id.orElse(request.getQueryString("id")).getOrElse("")
       logger.info(s"Sending request to Control Api to identify $key with $period")
       searchWithPeriod[UnitLinksList](key, Some(period))
@@ -67,37 +69,27 @@ class SearchController @Inject() (
   // TODO - Add swagger to other routes and updated ApiResponses annotation
   def searchLeu(period: String, id: String): Action[AnyContent] = Action.async {
     logger.info(s"Sending request to Control Api to retrieve legal unit with $id and $period")
-    //    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(LEU))
-    //    search[StatisticalUnitLinkType](id, uri, LEU, Some(period))
-    searchWithPeriod[StatisticalUnitLink](id, Some(period), Some(LEU))
+    searchWithPeriod[StatisticalUnit](id, Some(period), Some(LEU))
   }
 
   def searchEnterprise(period: String, id: String): Action[AnyContent] = Action.async {
     logger.info(s"Sending request to Control Api to retrieve enterprise with $id and $period")
-    //    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(ENT))
-    //    search[StatisticalUnitLinkType](id, uri, ENT, Some(period))
-    searchWithPeriod[StatisticalUnitLink](id, Some(period), Some(ENT))
+    searchWithPeriod[StatisticalUnit](id, Some(period), Some(ENT))
   }
 
   def searchVat(period: String, id: String): Action[AnyContent] = Action.async {
     logger.info(s"Sending request to Admin Api to retrieve VAT reference with $id and $period")
-    //    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(VAT))
-    //    search[StatisticalUnitLinkType](id, uri, VAT, Some(period))
-    searchWithPeriod[StatisticalUnitLink](id, Some(period), Some(VAT))
+    searchWithPeriod[StatisticalUnit](id, Some(period), Some(VAT))
   }
 
   def searchPaye(period: String, id: String): Action[AnyContent] = Action.async {
     logger.info(s"Sending request to Admin Api to retrieve PAYE record with $id and $period")
-    //    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(PAYE))
-    //    search[StatisticalUnitLinkType](id, uri, PAYE, Some(period))
-    searchWithPeriod[StatisticalUnitLink](id, Some(period), Some(PAYE))
+    searchWithPeriod[StatisticalUnit](id, Some(period), Some(PAYE))
   }
 
   def searchCrn(period: String, id: String): Action[AnyContent] = Action.async {
     logger.info(s"Sending request to Admin Api to retrieve Companies House Number with $id and $period")
-    //    val uri = createUri(SBR_CONTROL_API_URL, id, Some(period), Some(CRN))
-    //    search[StatisticalUnitLinkType](id, uri, CRN, Some(period))
-    searchWithPeriod[StatisticalUnitLink](id, Some(period), Some(CRN))
+    searchWithPeriod[StatisticalUnit](id, Some(period), Some(CRN))
   }
 
   def search(key: String, history: Option[Int]): Future[Result] =
@@ -119,24 +111,8 @@ class SearchController @Inject() (
       }
     )
 
-  @deprecated("Migrated to search", "fix/refactor-code - 25 March 2018")
-  def searchOLD(key: String, history: Option[Int]): Future[Result] = {
-    RequestEvaluationUtils.matchByParams(key) match {
-      case Right(i: IdRequest) =>
-        // TODO investigate why the use of getQueryString
-        searchService.generateRequest[UnitLinksList](i.id, None, None, history).map {
-          //        val ul = implicitly[UnitLinksType[UnitLinksList]]
-          //        searchService.generateRequest[UnitLinksList](i.id, None, None, history)(reads, ul).map {
-          case Right(response: WSResponse) if response.status == OK => Ok(response.json).as(JSON)
-          case Right(response: WSResponse) if response.status == NOT_FOUND => NotFound(response.json).as(JSON)
-          case Left(ex: Throwable) => responseException(ex)
-        } //recover responseException
-      case Left(e: InvalidKeyException) => BadRequest(e.getMessage).future
-    }
-  }
-
   def searchWithPeriod[T](id: String, period: Option[String] = None, `type`: Option[DataSourceTypes] = None)(implicit reads: Reads[T]): Future[Result] =
-    RequestEvaluationUtils.matchByParams(id, period) match {
+    RequestEvaluationUtils.getUnitMatchRequest(id, period) match {
       case Right(r: RequestEvaluation) =>
         searchService.generateRequest[T](r)(reads).map {
           //        val ul = implicitly[UnitLinksType[T]]
@@ -144,43 +120,12 @@ class SearchController @Inject() (
           case Right(response: WSResponse) if response.status == OK => Ok(response.json).as(JSON)
           case Right(response: WSResponse) if response.status == NOT_FOUND => NotFound(response.json).as(JSON)
           case Left(ex: Throwable) => responseException(ex)
-        } //recover responseException
+        }
       case Left(ex: DateTimeParseException) =>
         BadRequest(Messages("controller.datetime.failed.parse", ex.toString,
           RequestEvaluationUtils.yearMonthFormat)).future
       case Left(e: InvalidKeyException) => BadRequest(e.getMessage).future
     }
-
-  @deprecated("Migrated to searchWithPeriod", "fix/refactor-code - 25 March 2018")
-  def searchWithPeriodOLD[T](id: String, period: Option[String] = None, `type`: Option[DataSourceTypes] = None)(implicit reads: Reads[T]): Future[Result] =
-    RequestEvaluationUtils.matchByParams(id, period) match {
-      case Right(r: PeriodRequest) =>
-        searchService.generateRequest[T](id, Some(r.period), `type`)(reads).map {
-          //        val ul = implicitly[UnitLinksType[T]]
-          //        searchService.generateRequest[T](id, Some(r.period), `type`)(reads, ul).map {
-          case Right(response: WSResponse) if response.status == OK => Ok(response.json).as(JSON)
-          case Right(response: WSResponse) if response.status == NOT_FOUND => NotFound(response.json).as(JSON)
-          case Left(ex: Throwable) => responseException(ex)
-        } //recover responseException
-      case Left(ex: DateTimeParseException) =>
-        BadRequest(Messages("controller.datetime.failed.parse", ex.toString,
-          RequestEvaluationUtils.yearMonthFormat)).future
-      case Left(e: InvalidKeyException) => BadRequest(e.getMessage).future
-    }
-
-  @deprecated("Migrated to responseException", "fix/refactor-code - 18 March 2018")
-  def recoverException: PartialFunction[Throwable, Result] = {
-    case ex: DateTimeParseException =>
-      BadRequest(Messages("controller.datetime.failed.parse", ex.toString))
-    case ex: JsResultException => InternalServerError(s"$ex")
-    case ex: RuntimeException => InternalServerError(s"$ex")
-    //      InternalServerError(errAsJson(ex.toString, ex.getCause.toString))
-    case ex: ServiceUnavailableException =>
-      ServiceUnavailable(errAsJson(ex.toString, ex.getCause.toString))
-    case ex: TimeoutException =>
-      RequestTimeout(Messages("controller.timeout.request", s"$ex", s"${ex.getCause}"))
-    case ex => InternalServerError(errAsJson(ex.toString, ex.getCause.toString))
-  }
 
   def responseException(e: Throwable): Result =
     e match {

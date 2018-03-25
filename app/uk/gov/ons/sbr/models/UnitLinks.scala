@@ -46,7 +46,7 @@ object UnitLinks {
   //  implicit val unitLinksFormat: Reads[UnitLinks] = Json.reads[UnitLinks]
 
   implicit val unitLinksReads: Reads[UnitLinks] = (
-    (JsPath \ "id").read[String](minLength[String](RequestEvaluationUtils.MINIMUM_KEY_LENGTH)) and
+    (JsPath \ "id").read[String](minLength[String](RequestEvaluationUtils.minimumKeyLength)) and
     //      (JsPath \ "period").read[YearMonth] and
     (JsPath \ "unitType").read[DataSourceTypes] and
     JsPath.read[Attributes]

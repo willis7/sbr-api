@@ -1,6 +1,5 @@
 package services
 
-import java.time.YearMonth
 import javax.inject.{ Inject, Singleton }
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -17,7 +16,7 @@ import uk.gov.ons.sbr.models._
 import uk.gov.ons.sbr.{ JsonParser, RequestEvaluation, UnitRequest }
 
 import config.Properties
-import utils.UriBuilder.{ createUri, createUriOLD }
+import utils.UriBuilder.createUri
 
 @Singleton
 class SearchService @Inject() (implicit ws: RequestGenerator, val configuration: Configuration) extends Status with Results {
@@ -35,6 +34,52 @@ class SearchService @Inject() (implicit ws: RequestGenerator, val configuration:
   type FutureSearch = Future[Either[Throwable, WSResponse]]
 
   val findUrl: (DataSourceTypes) => String = DataSourceTypesUtil.getUrl(props)
+
+  def generateRequest[T](requestEvaluation: RequestEvaluation)(implicit r: Reads[T]): FutureSearch = {
+    getUnitLinks(requestEvaluation).map {
+      case response if response.status == OK => {
+        JsonParser.validateJsonParse[T](response.json) match {
+          case Right(js: T) =>
+            //            val j = ul.parseUnitLinksJson(js, period, `type`, history)
+            //            println(j)
+            // js as type and match to type class
+
+            // we use js as unitLinks to extract id and type etc...
+            Right(response)
+
+          //            if (js.length == CAPPED_DISPLAY_NUMBER) {
+          //              getUnitRecord
+          //              /**
+          //                * HERE WE INCLUDE THE CORE SEARCH REQUESTS
+          //                */
+          //              Right(???)
+          //            } else {
+          //              logger.debug(s"Found multiple records matching given id, $id. Returning multiple as list.")
+          //              Right(response)
+          //            }
+          case Left(ex: JsResultException) => Left(ex)
+        }
+      } case response if response.status == NOT_FOUND => {
+        // TODO ADD logger back and add proper period parser!! => requestEvaluation.isInstanceOf[PeriodRequest]
+        logger.debug(s"Could find UnitLink for id ${requestEvaluation.id}.")
+        Right(response)
+      }
+      case ex: Throwable => Left(ex)
+    }
+  }
+
+  private def getUnitLinks(requestEvaluation: RequestEvaluation): Future[WSResponse] = {
+    val unitLinkRequestUrl = createUri(props.SBR_CONTROL_API_URL, requestEvaluation)
+    logger.debug(s"Sending request to $unitLinkRequestUrl to retrieve Unit Links")
+    ws.singleGETRequest(unitLinkRequestUrl)
+  }
+
+  private def getUnitRecord(unitRequest: UnitRequest): Future[WSResponse] = {
+    val path = findUrl(unitRequest.`type`)
+    val dataRecordRequestUrl = createUri(path, unitRequest)
+    logger.info(s"Sending request to $dataRecordRequestUrl to get records of all variables of unit.")
+    ws.singleGETRequest(dataRecordRequestUrl)
+  }
 
   //  // @ TODO - CHECK error control
   //  protected def search[T](key: String, baseUrl: String, sourceType: DataSourceTypes = ENT,
@@ -111,90 +156,4 @@ class SearchService @Inject() (implicit ws: RequestGenerator, val configuration:
   //      Left(e.errors)
   //    }
   //  }
-
-  def generateRequest[T](requestEvaluation: RequestEvaluation)(implicit r: Reads[T]): FutureSearch = {
-    getUnitLinks(requestEvaluation).map {
-      case response if response.status == OK => {
-        JsonParser.validateJsonParse[T](response.json) match {
-          case Right(js: T) =>
-            //            val j = ul.parseUnitLinksJson(js, period, `type`, history)
-            //            println(j)
-            // js as type and match to type class
-
-            // we use js as unitLinks to extract id and type etc...
-            Right(response)
-
-          //            if (js.length == CAPPED_DISPLAY_NUMBER) {
-          //              getUnitRecord
-          //              /**
-          //                * HERE WE INCLUDE THE CORE SEARCH REQUESTS
-          //                */
-          //              Right(???)
-          //            } else {
-          //              logger.debug(s"Found multiple records matching given id, $id. Returning multiple as list.")
-          //              Right(response)
-          //            }
-          case Left(ex: JsResultException) => Left(ex)
-        }
-      } case response if response.status == NOT_FOUND => {
-        // TODO ADD logger back and add proper period parser!! => requestEvaluation.isInstanceOf[PeriodRequest]
-        logger.debug(s"Could find UnitLink for id ${requestEvaluation.id}.")
-        Right(response)
-      }
-      case ex: Throwable => Left(ex)
-    }
-  }
-
-  @deprecated("Migrated to createUri with RequestEvaluation param", "fix/refactor-code - 25 March 2018")
-  def generateRequest[T](id: String, period: Option[YearMonth] = None, `type`: Option[DataSourceTypes] = None,
-    //history: Option[Int] = None)(implicit r: Reads[T], ul: UnitLinksType[T]): Future[Either[Throwable, WSResponse]] = {
-    history: Option[Int] = None)(implicit r: Reads[T]): Future[Either[Throwable, WSResponse]] = {
-    getUnitLinks(id, period, `type`).map {
-      case response if response.status == OK => {
-        // @ TODO - ADD type class to control different UnitLink request -> UnitLinksListType AND StatisticalUnitLinkType
-        // TODO use fold
-        JsonParser.validateJsonParse[T](response.json) match {
-          case Right(_: T) =>
-            Right(response)
-          case Left(ex: JsResultException) => Left(ex)
-        }
-      } case response if response.status == NOT_FOUND => {
-        // TODO add proper period parser
-        logger.debug(s"Could find UnitLink for id $id and period ${period.getOrElse("with no period")}.")
-        Right(response)
-      }
-      case ex: Throwable => Left(ex)
-    }
-  }
-
-  private def getUnitLinks(requestEvaluation: RequestEvaluation): Future[WSResponse] = {
-    val unitLinkRequestUrl = createUri(props.SBR_CONTROL_API_URL, requestEvaluation)
-    logger.debug(s"Sending request to $unitLinkRequestUrl to retrieve Unit Links")
-    ws.singleGETRequest(unitLinkRequestUrl)
-  }
-
-  @deprecated("Migrated to createUri with RequestEvaluation param", "fix/refactor-code - 25 March 2018")
-  private def getUnitLinks(id: String, period: Option[YearMonth] = None, `type`: Option[DataSourceTypes] = None): Future[WSResponse] = {
-    val unitLinkRequestUrl = createUriOLD(props.SBR_CONTROL_API_URL, id, period, `type`)
-    logger.debug(s"Sending request to $unitLinkRequestUrl to retrieve Unit Links")
-    ws.singleGETRequest(unitLinkRequestUrl)
-  }
-
-  // TODO make check that `type` is defined else NullException before func invoked
-  private def getUnitRecord(unitRequest: UnitRequest): Future[WSResponse] = {
-    val path = findUrl(unitRequest.`type`)
-    val dataRecordRequestUrl = createUri(path, unitRequest)
-    logger.info(s"Sending request to $dataRecordRequestUrl to get records of all variables of unit.")
-    ws.singleGETRequest(dataRecordRequestUrl)
-  }
-
-  @deprecated("Migrated to createUri with RequestEvaluation param", "fix/refactor-code - 25 March 2018")
-  private def getUnitRecord(id: String, period: Option[YearMonth] = None, `type`: DataSourceTypes,
-    history: Option[Int] = None): Future[WSResponse] = {
-    val path = findUrl(`type`)
-    val dataRecordRequestUrl = createUriOLD(path, id, period, Some(`type`), history = history)
-    logger.info(s"Sending request to $dataRecordRequestUrl to get records of all variables of unit.")
-    ws.singleGETRequest(dataRecordRequestUrl)
-  }
-
 }
