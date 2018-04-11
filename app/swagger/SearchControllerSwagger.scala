@@ -21,6 +21,9 @@ trait SearchControllerSwagger {
     code = 200,
     httpMethod = "GET"
   )
+  @ApiParam(
+    name = "authorization"
+  )
   @ApiResponses(Array(
     new ApiResponse(code = 200, responseContainer = "JSONObject", message = "Success -> Record(s) found for id."),
     new ApiResponse(code = 400, responseContainer = "JSONObject", message = "Client Side Error -> Required " +

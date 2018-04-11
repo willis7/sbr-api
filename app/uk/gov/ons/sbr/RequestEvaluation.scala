@@ -1,11 +1,11 @@
 package uk.gov.ons.sbr
 
 import java.time.YearMonth
-import java.time.format.{DateTimeFormatter, DateTimeParseException}
+import java.time.format.{ DateTimeFormatter, DateTimeParseException }
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 
-import org.slf4j.{Logger, LoggerFactory}
+import org.slf4j.{ Logger, LoggerFactory }
 import com.google.inject.ImplementedBy
 
 import uk.gov.ons.sbr.RequestEvaluationUtils.minimumKeyLength
@@ -30,7 +30,6 @@ case class UnitRequest(id: String, period: YearMonth, `type`: DataSourceTypes) e
 case class InvalidKeyException(id: String, length: Int = minimumKeyLength)
   extends Exception(s"Invalid key length exception $length with key $id")
 
-
 object RequestEvaluationUtils {
 
   type MatchParam[T] = Either[Exception, T]
@@ -40,8 +39,7 @@ object RequestEvaluationUtils {
   val yearMonthFormat: String = "yyyyMM"
 
   // WRAPPER
-  def getUnitMatchRequest(id: String, period: Option[String] = None, `type`: Option[DataSourceTypes] = None
-                         ): MatchParam[RequestEvaluation] =
+  def getUnitMatchRequest(id: String, period: Option[String] = None, `type`: Option[DataSourceTypes] = None): MatchParam[RequestEvaluation] =
     `type`.fold(matchByParams(id, period))(
       d => matchByParams(id, period).right.map {
         case (x: PeriodRequest) => UnitRequest(x.id, x.period, d)

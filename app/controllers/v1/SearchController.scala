@@ -1,16 +1,16 @@
 package controllers.v1
 
 import java.time.format.DateTimeParseException
-import javax.inject.{Inject, Singleton}
+import javax.inject.{ Inject, Singleton }
 import javax.naming.ServiceUnavailableException
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Future, TimeoutException}
+import scala.concurrent.{ Future, TimeoutException }
 import scala.util.Try
 
 import play.api.Configuration
-import play.api.i18n.{I18nSupport, Messages, MessagesApi}
-import play.api.libs.json.{JsResultException, Reads}
+import play.api.i18n.{ I18nSupport, Messages, MessagesApi }
+import play.api.libs.json.{ JsResultException, Reads }
 import play.api.libs.ws.WSResponse
 import play.api.mvc._
 import org.slf4j.LoggerFactory
@@ -21,7 +21,7 @@ import uk.gov.ons.sbr.models._
 
 import utils.FutureResponse.futureSuccess
 import utils.Utilities.errAsJson
-import services.{RequestGenerator, SearchService}
+import services.{ RequestGenerator, SearchService }
 import swagger.SearchControllerSwagger
 
 /**
