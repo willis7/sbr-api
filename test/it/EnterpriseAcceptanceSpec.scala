@@ -1,16 +1,13 @@
 import java.time.Month.MARCH
 
-import fixture.ReadsUnitDescriptor.unitDescriptor
 import fixture.ServerAcceptanceSpec
 import org.scalatest.OptionValues
 import play.api.http.HeaderNames.CONTENT_TYPE
 import play.api.http.Status.OK
-import play.api.libs.json.{ JsValue, Json }
+import play.api.libs.json.Json
 import play.mvc.Http.MimeTypes.JSON
 import support.WithWireMockSbrControlApi
-import uk.gov.ons.sbr.models.{ Ern, Period, UnitDescriptor }
-
-import scala.util.parsing.json.JSONObject
+import uk.gov.ons.sbr.models._
 
 class EnterpriseAcceptanceSpec extends ServerAcceptanceSpec with WithWireMockSbrControlApi with OptionValues {
   private val TargetErn = Ern("1000000012")
@@ -21,7 +18,7 @@ class EnterpriseAcceptanceSpec extends ServerAcceptanceSpec with WithWireMockSbr
        |{"id":"${TargetErn.value}",
        | "children":{"10205415":"LEU","900000011":"LOU"},
        | "unitType":"ENT",
-       | "period":"201803"
+       | "period":"${Period.asString(TargetPeriod)}"
        |}""".stripMargin
 
   private val EnterpriseUnitResponseBody =
@@ -33,6 +30,26 @@ class EnterpriseAcceptanceSpec extends ServerAcceptanceSpec with WithWireMockSbr
         | "legalStatus":"some-legalStatus",
         | "employees":42
         |}""".stripMargin
+
+  private val ExpectedDetailsBody =
+    s"""
+       |{"id":"${TargetErn.value}",
+       | "children": {
+       |   "10205415":"LEU",
+       |   "900000011":"LOU"
+       | },
+       | "unitType":"ENT",
+       | "period":"${Period.asString(TargetPeriod)}",
+       | "unit": {
+       |   "ern":"${TargetErn.value}",
+       |   "entref":"some-entref",
+       |   "name":"some-name",
+       |   "postcode":"some-postcode",
+       |   "legalStatus":"some-legalStatus",
+       |   "employees":42
+       |  }
+       |}"
+     """.stripMargin
 
   info("As a SBR user")
   info("I want to retrieve an enterprise for a period in time")
@@ -55,14 +72,7 @@ class EnterpriseAcceptanceSpec extends ServerAcceptanceSpec with WithWireMockSbr
       Then(s"the details of the enterprise with $TargetErn for $TargetPeriod are returned")
       response.status shouldBe OK
       response.header(CONTENT_TYPE).value shouldBe JSON
-
-      response.json.as[UnitDescriptor] shouldBe UnitDescriptor(
-        id = TargetErn.value,
-        children = Map("10205415" -> "LEU", "900000011" -> "LOU"),
-        unitType = "ENT",
-        period = Period.asString(TargetPeriod),
-        vars = Json.parse(EnterpriseUnitResponseBody)
-      )
+      response.json shouldBe Json.parse(ExpectedDetailsBody)
     }
   }
 }

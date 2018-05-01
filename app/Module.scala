@@ -1,7 +1,13 @@
 import java.time.Clock
 
 import play.api.{ Configuration, Environment }
-import com.google.inject.AbstractModule
+import com.google.inject.{ AbstractModule, TypeLiteral }
+import play.api.libs.json.Writes
+import repository.{ EnterpriseRepository, UnitLinksRepository }
+import repository.sbrctrl.{ SbrCtrlEnterpriseRepository, SbrCtrlUnitLinksRepository }
+import services.EnterpriseService
+import services.sbrctrl.SbrCtrlEnterpriseService
+import uk.gov.ons.sbr.models.UnitDescriptor
 
 /**
  * This class is a Guice module that tells Guice how to bind several
@@ -19,13 +25,11 @@ class Module(
 ) extends AbstractModule {
 
   override def configure() = {
-
-    //    val config = SBRPropertiesConfiguration.envConfig(ConfigFactory.load())
-    //    //    val config: Config = ConfigFactory.load
-    //    bind(classOf[Config]).toInstance(config)
-
+    bind(classOf[EnterpriseService]).to(classOf[SbrCtrlEnterpriseService])
+    bind(new TypeLiteral[Writes[UnitDescriptor]]() {}).toInstance(UnitDescriptor.writes)
+    bind(classOf[UnitLinksRepository]).to(classOf[SbrCtrlUnitLinksRepository])
+    bind(classOf[EnterpriseRepository]).to(classOf[SbrCtrlEnterpriseRepository])
     // Use the system clock as the default implementation of Clock
     bind(classOf[Clock]).toInstance(Clock.systemDefaultZone)
   }
-
 }
